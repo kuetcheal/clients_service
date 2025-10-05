@@ -9,3 +9,10 @@
 # les tests d'opérations CRUD ont été effectués sur Postman.
 
 # j'ai utilisé un système d'authentification pour protéger mes routes
+
+
+# token pour le service_client : eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuaW1wb3J0ZSIsImlhdCI6MTc1NDIyMjE0MCwiZXhwIjoxNzU0MjI1NzQwLCJyb2xlcyI6WyJST0xFX1VTRVIiXX0.8XRtJXlQl5QrQhAIQ1bdKdp1zl0sdSS7km7SuPCwwzg
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsImlhdCI6MTc1OTY0NjQ2NCwiZXhwIjoxNzU5NjUwMDY0fQ.rJrYPjmiAg_la8axHJpV9boO5qK86TwuqwQNqI6s0rY
+
+const SECRET = process.env.JWT_SECRET; // Clé dans .env

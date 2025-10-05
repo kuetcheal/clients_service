@@ -1,5 +1,6 @@
 const Client = require('../models/clientModel');
 
+// ✅ Récupérer tous les clients
 exports.getAllClients = (req, res) => {
   Client.getAll((err, results) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -7,6 +8,7 @@ exports.getAllClients = (req, res) => {
   });
 };
 
+// ✅ Récupérer un client par ID
 exports.getClientById = (req, res) => {
   const { id } = req.params;
   Client.getById(id, (err, result) => {
@@ -16,14 +18,20 @@ exports.getClientById = (req, res) => {
   });
 };
 
+// ✅ Créer un client (⚠️ pour inscription, on passera par authController)
 exports.createClient = (req, res) => {
   const data = req.body;
+  if (!data.nom || !data.mail || !data.numero_telephone || !data.password) {
+    return res.status(400).json({ error: "Tous les champs sont requis" });
+  }
+
   Client.create(data, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
     res.status(201).json({ message: "Client créé", id: result.insertId });
   });
 };
 
+// ✅ Mettre à jour un client
 exports.updateClient = (req, res) => {
   const { id } = req.params;
   const data = req.body;
@@ -33,6 +41,7 @@ exports.updateClient = (req, res) => {
   });
 };
 
+// ✅ Supprimer un client
 exports.deleteClient = (req, res) => {
   const { id } = req.params;
   Client.delete(id, (err) => {

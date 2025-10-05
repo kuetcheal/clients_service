@@ -10,6 +10,7 @@ const ClientModel = {
   },
 
   create: (data, callback) => {
+    // ⚠️ Vérifie que data contient bien {nom, mail, numero_telephone, password}
     db.query('INSERT INTO client SET ?', data, callback);
   },
 

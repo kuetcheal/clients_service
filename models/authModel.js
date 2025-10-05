@@ -1,23 +1,37 @@
+// models/authModel.js
 const db = require('../services/db');
 const bcrypt = require('bcrypt');
 
 const AuthModel = {
-  register: async ({ email, password }, callback) => {
+  // ✅ Inscription
+  register: async ({ nom, mail, numero_telephone, password }, callback) => {
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
+
       db.query(
-        'INSERT INTO users (email, password) VALUES (?, ?)',
-        [email, hashedPassword],
-        callback
+        'INSERT INTO client (nom, mail, numero_telephone, password) VALUES (?, ?, ?, ?)',
+        [nom, mail, numero_telephone, hashedPassword],
+        (err, result) => {
+          if (err) return callback(err);
+          return callback(null, result); 
+        }
       );
-    } catch (error) {
-      callback(error, null);
+    } catch (err) {
+      return callback(err);
     }
   },
 
-  findByEmail: (email, callback) => {
-    db.query('SELECT * FROM users WHERE email = ?', [email], callback);
-  }
+  // ✅ Recherche par mail (pour la connexion)
+  findByEmail: (mail, callback) => {
+    db.query(
+      'SELECT * FROM client WHERE mail = ? LIMIT 1',
+      [mail],
+      (err, rows) => {
+        if (err) return callback(err);
+        return callback(null, rows); 
+      }
+    );
+  },
 };
 
 module.exports = AuthModel;

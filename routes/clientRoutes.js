@@ -1,9 +1,10 @@
+// routes/clientRoutes.js
 const express = require('express');
 const router = express.Router();
 const clientController = require('../controllers/clientController');
 const auth = require('../middlewares/authMiddleware');
 
-// Routes protégées par le middleware JWT
+// Toutes les routes clients protégées
 router.get('/', auth, clientController.getAllClients);
 router.get('/:id', auth, clientController.getClientById);
 router.post('/', auth, clientController.createClient);
