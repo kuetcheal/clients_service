@@ -52,7 +52,6 @@ exports.register = async (req, res) => {
   }
 };
 
-
 // ✅ VÉRIFICATION DU CODE
 exports.verifyCode = (req, res) => {
   const { mail, code } = req.body;
@@ -79,6 +78,51 @@ exports.verifyCode = (req, res) => {
   });
 };
 
+// ✅ RÉENVOYER LE CODE DE VÉRIFICATION
+exports.resendCode = (req, res) => {
+  const { mail } = req.body;
+
+  if (!mail)
+    return res.status(400).json({ error: "L'adresse e-mail est requise" });
+
+  AuthModel.findByEmail(mail, async (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!results.length)
+      return res.status(404).json({ error: "Utilisateur introuvable" });
+
+    const user = results[0];
+
+    if (user.verified) {
+      return res.status(400).json({ error: "Ce compte est déjà vérifié ✅" });
+    }
+
+    // 1️⃣ Nouveau code à 6 chiffres
+    const newCode = Math.floor(100000 + Math.random() * 900000);
+
+    // 2️⃣ Mettre à jour la base
+    AuthModel.updateVerificationCode(mail, newCode, async (err2) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+
+      // 3️⃣ Envoyer le nouveau code par e-mail
+      const subject = "Nouveau code de vérification 🔁";
+      const html = `
+        <h2>Bonjour ${user.nom || ""},</h2>
+        <p>Voici votre nouveau code de vérification :</p>
+        <h1 style="letter-spacing:5px;">${newCode}</h1>
+        <p>Ce code expirera dans 10 minutes ⏳</p>
+      `;
+
+      try {
+        await sendMail(mail, subject, html);
+        console.log("📨 Nouveau code envoyé à :", mail);
+        res.json({ message: "Nouveau code envoyé avec succès ✅" });
+      } catch (e) {
+        console.error("Erreur d'envoi du mail :", e);
+        res.status(500).json({ error: "Impossible d'envoyer l'e-mail" });
+      }
+    });
+  });
+};
 
 // ✅ CONNEXION
 exports.login = (req, res) => {

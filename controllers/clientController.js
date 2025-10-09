@@ -4,6 +4,11 @@ const Client = require('../models/clientModel');
 exports.getAllClients = (req, res) => {
   Client.getAll((err, results) => {
     if (err) return res.status(500).json({ error: err.message });
+
+    // 👉 Ajout des headers pour React Admin
+    res.setHeader("Access-Control-Expose-Headers", "Content-Range");
+    res.setHeader("Content-Range", `clients 0-${results.length}/${results.length}`);
+
     res.json(results);
   });
 };
@@ -18,7 +23,7 @@ exports.getClientById = (req, res) => {
   });
 };
 
-// ✅ Créer un client (⚠️ pour inscription, on passera par authController)
+// ✅ Créer un client (⚠️ inscription via authController normalement)
 exports.createClient = (req, res) => {
   const data = req.body;
   if (!data.nom || !data.mail || !data.numero_telephone || !data.password) {

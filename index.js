@@ -5,6 +5,7 @@ require('dotenv').config();
 const db = require('./services/db'); 
 const authRoutes = require('./routes/authRoutes');
 const clientRoutes = require('./routes/clientRoutes');
+const eventRoutes = require("./routes/eventRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,7 @@ app.use(bodyParser.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/clients', clientRoutes);
+app.use("/api/events", eventRoutes);
 
 // Lancement du serveur
 app.listen(PORT, () => {

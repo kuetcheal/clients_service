@@ -3,7 +3,9 @@ const db = require("../services/db");
 const bcrypt = require("bcrypt");
 
 const AuthModel = {
-  // ✅ Inscription avec code de vérification
+  /**
+   * ✅ Inscription avec code de vérification
+   */
   register: async ({ nom, mail, numero_telephone, password, verification_code }, callback) => {
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -22,28 +24,37 @@ const AuthModel = {
     }
   },
 
-  // ✅ Recherche par mail (pour connexion ou vérification)
+  /**
+   * ✅ Recherche d’un utilisateur par adresse e-mail
+   */
   findByEmail: (mail, callback) => {
-    db.query(
-      "SELECT * FROM client WHERE mail = ? LIMIT 1",
-      [mail],
-      (err, rows) => {
-        if (err) return callback(err);
-        return callback(null, rows);
-      }
-    );
+    const sql = "SELECT * FROM client WHERE mail = ? LIMIT 1";
+    db.query(sql, [mail], (err, rows) => {
+      if (err) return callback(err);
+      return callback(null, rows);
+    });
   },
 
-  // ✅ Marquer un compte comme vérifié
+  /**
+   * ✅ Marquer un utilisateur comme vérifié
+   */
   markAsVerified: (mail, callback) => {
-    db.query(
-      "UPDATE client SET verified = true, verification_code = NULL WHERE mail = ?",
-      [mail],
-      (err, result) => {
-        if (err) return callback(err);
-        return callback(null, result);
-      }
-    );
+    const sql = "UPDATE client SET verified = true, verification_code = NULL WHERE mail = ?";
+    db.query(sql, [mail], (err, result) => {
+      if (err) return callback(err);
+      return callback(null, result);
+    });
+  },
+
+  /**
+   * ✅ Mettre à jour le code de vérification (pour resendCode)
+   */
+  updateVerificationCode: (mail, newCode, callback) => {
+    const sql = "UPDATE client SET verification_code = ? WHERE mail = ?";
+    db.query(sql, [newCode, mail], (err, result) => {
+      if (err) return callback(err);
+      return callback(null, result);
+    });
   },
 };
 
