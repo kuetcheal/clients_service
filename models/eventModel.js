@@ -14,23 +14,66 @@ const EventModel = {
 
   // ✅ Créer un événement
   create: (data, callback) => {
-    const { title, description, date_event, time_event, location, city, image_url } = data;
+    const {
+      title,
+      description,
+      date_event,
+      time_event,
+      location,
+      city,
+      image_url,
+      ticket_url,
+      event_type,
+    } = data;
+
     db.query(
-      `INSERT INTO event (title, description, date_event, time_event, location, city, image_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [title, description, date_event, time_event, location, city, image_url],
+      `INSERT INTO event (title, description, date_event, time_event, location, city, image_url, ticket_url, event_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        title,
+        description,
+        date_event,
+        time_event,
+        location,
+        city,
+        image_url,
+        ticket_url,
+        event_type,
+      ],
       callback
     );
   },
 
   // ✅ Mettre à jour un événement
   update: (id, data, callback) => {
-    const { title, description, date_event, time_event, location, city, image_url } = data;
+    const {
+      title,
+      description,
+      date_event,
+      time_event,
+      location,
+      city,
+      image_url,
+      ticket_url,
+      event_type,
+    } = data;
+
     db.query(
       `UPDATE event
-       SET title = ?, description = ?, date_event = ?, time_event = ?, location = ?, city = ?, image_url = ?
+       SET title = ?, description = ?, date_event = ?, time_event = ?, location = ?, city = ?, image_url = ?, ticket_url = ?, event_type = ?
        WHERE id = ?`,
-      [title, description, date_event, time_event, location, city, image_url, id],
+      [
+        title,
+        description,
+        date_event,
+        time_event,
+        location,
+        city,
+        image_url,
+        ticket_url,
+        event_type,
+        id,
+      ],
       callback
     );
   },

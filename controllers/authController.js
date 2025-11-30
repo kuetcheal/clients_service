@@ -163,3 +163,61 @@ exports.login = (req, res) => {
     });
   });
 };
+
+
+// ✅ MOT DE PASSE OUBLIÉ
+exports.forgotPassword = async (req, res) => {
+  const { mail } = req.body;
+
+  if (!mail) {
+    return res.status(400).json({ error: "L'adresse e-mail est requise" });
+  }
+
+  try {
+    // Vérifie si un compte existe
+    AuthModel.findByEmail(mail, async (err, results) => {
+      if (err) return res.status(500).json({ error: "Erreur serveur MySQL" });
+
+      // Message générique pour éviter de révéler les adresses valides
+      const messageUtilisateur = "Si cet e-mail est associé à un compte, vous recevrez un lien pour réinitialiser votre mot de passe.";
+
+      // Si aucun compte ne correspond, on répond quand même 200
+      if (!results.length) {
+        return res.status(200).json({ message: messageUtilisateur });
+      }
+
+      // Si le compte existe, on envoie le mail
+      const user = results[0];
+      const resetToken = jwt.sign({ mail: user.mail }, process.env.JWT_SECRET, { expiresIn: "15m" });
+
+      const resetLink = `http://192.168.1.53:3000/api/auth/reset-password/${resetToken}`;
+
+      // Envoi du mail
+      const subject = "Réinitialisation de votre mot de passe 🔒";
+      const html = `
+        <h2>Bonjour ${user.nom || ""},</h2>
+        <p>Vous avez demandé à réinitialiser votre mot de passe.</p>
+        <p>Cliquez sur le lien ci-dessous pour continuer :</p>
+        <a href="${resetLink}" target="_blank"
+           style="background:#007BFF;color:white;padding:10px 15px;text-decoration:none;border-radius:5px;">Réinitialiser mon mot de passe</a>
+        <p>Ce lien expirera dans 15 minutes ⏳</p>
+        <p>Si vous n'êtes pas à l'origine de cette demande, ignorez simplement ce message.</p>
+        <br>
+        <p>L'équipe <b>EventGo</b></p>
+      `;
+
+      try {
+        await sendMail(mail, subject, html);
+        console.log("📨 Mail de réinitialisation envoyé à :", mail);
+      } catch (e) {
+        console.error("Erreur d'envoi du mail :", e);
+      }
+
+      // Réponse au front Flutter
+      res.status(200).json({ message: messageUtilisateur });
+    });
+  } catch (err) {
+    console.error("Erreur forgotPassword:", err);
+    res.status(500).json({ error: "Erreur interne du serveur" });
+  }
+};

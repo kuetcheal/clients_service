@@ -7,7 +7,9 @@ const authController = require("../controllers/authController");
 router.post("/register", authController.register);
 router.post("/login", authController.login);
 router.post("/verify", authController.verifyCode);
-router.post("/resend-code", authController.resendCode); // ⚠️ assure-toi que resendCode existe bien
+router.post("/resend-code", authController.resendCode);
 
-// ✅ La bonne syntaxe ici 👇
+// ✅ Mot de passe oublié
+router.post("/forgot-password", authController.forgotPassword);
+
 module.exports = router;

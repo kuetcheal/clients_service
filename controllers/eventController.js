@@ -27,15 +27,15 @@ exports.getEventById = (req, res) => {
   });
 };
 
-// ✅ Créer un événement (avec gestion image uploadée)
+// ✅ Créer un événement
 exports.createEvent = (req, res) => {
   try {
     const data = { ...req.body };
 
-    //  Cas fichier uploadé
-if (req.file) {
-  data.image_url = `${BASE_URL}/uploads/events/${req.file.filename}`;
-}
+    //  Gestion image uploadée
+    if (req.file) {
+      data.image_url = `${BASE_URL}/uploads/events/${req.file.filename}`;
+    }
 
     EventModel.create(data, (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -52,15 +52,14 @@ if (req.file) {
   }
 };
 
-// ✅ Mettre à jour un événement (avec gestion image uploadée)
+// ✅ Mettre à jour un événement
 exports.updateEvent = (req, res) => {
   try {
     const { id } = req.params;
     const data = { ...req.body };
 
-    //  Cas fichier uploadé
     if (req.file) {
-      data.image_url = `/uploads/events/${req.file.filename}`;
+      data.image_url = `${BASE_URL}/uploads/events/${req.file.filename}`;
     }
 
     EventModel.update(id, data, (err, result) => {
@@ -79,7 +78,7 @@ exports.updateEvent = (req, res) => {
   }
 };
 
-// Supprimer un événement
+// ✅ Supprimer un événement
 exports.deleteEvent = (req, res) => {
   const { id } = req.params;
   EventModel.delete(id, (err, result) => {
