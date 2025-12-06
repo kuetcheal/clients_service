@@ -1,31 +1,58 @@
-// models/authModel.js
+
 const db = require("../services/db");
 const bcrypt = require("bcrypt");
 
 const AuthModel = {
-  /**
-   * ✅ Inscription avec code de vérification
-   */
-  register: async ({ nom, mail, numero_telephone, password, verification_code }, callback) => {
+
+  
+  register: async (
+    {
+      nom,
+      mail,
+      numero_telephone,
+      password,
+      verification_code,
+      Adresse,
+      code_postal,
+      latitude,
+      longitude
+    },
+    callback
+  ) => {
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      db.query(
-        `INSERT INTO client (nom, mail, numero_telephone, password, verification_code, verified)
-         VALUES (?, ?, ?, ?, ?, false)`,
-        [nom, mail, numero_telephone, hashedPassword, verification_code],
-        (err, result) => {
-          if (err) return callback(err);
-          return callback(null, result);
-        }
-      );
+      const sql = `
+        INSERT INTO client 
+        (nom, mail, numero_telephone, password, verification_code, verified, Adresse, code_postal, latitude, longitude)
+        VALUES (?, ?, ?, ?, ?, false, ?, ?, ?, ?)
+      `;
+
+      const values = [
+        nom,
+        mail,
+        numero_telephone,
+        hashedPassword,
+        verification_code,
+        Adresse,
+        code_postal,
+        latitude,
+        longitude
+      ];
+
+      db.query(sql, values, (err, result) => {
+        if (err) return callback(err);
+        return callback(null, result);
+      });
+
     } catch (err) {
       return callback(err);
     }
   },
 
+
   /**
-   * ✅ Recherche d’un utilisateur par adresse e-mail
+   * ✅ RECHERCHER UN UTILISATEUR PAR EMAIL
    */
   findByEmail: (mail, callback) => {
     const sql = "SELECT * FROM client WHERE mail = ? LIMIT 1";
@@ -35,8 +62,9 @@ const AuthModel = {
     });
   },
 
+
   /**
-   * ✅ Marquer un utilisateur comme vérifié
+   * ✅ MARQUER L'UTILISATEUR COMME VÉRIFIÉ
    */
   markAsVerified: (mail, callback) => {
     const sql = "UPDATE client SET verified = true, verification_code = NULL WHERE mail = ?";
@@ -46,8 +74,9 @@ const AuthModel = {
     });
   },
 
+
   /**
-   * ✅ Mettre à jour le code de vérification (pour resendCode)
+   * ✅ METTRE À JOUR LE CODE DE VÉRIFICATION
    */
   updateVerificationCode: (mail, newCode, callback) => {
     const sql = "UPDATE client SET verification_code = ? WHERE mail = ?";
@@ -55,7 +84,8 @@ const AuthModel = {
       if (err) return callback(err);
       return callback(null, result);
     });
-  },
+  }
+
 };
 
 module.exports = AuthModel;

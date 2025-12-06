@@ -5,6 +5,8 @@ const eventController = require("../controllers/eventController");
 const multer = require("multer");
 const path = require("path");
 
+router.get("/nearby/by-user", eventController.getNearbyEventsForUser);
+
 //  Configuration du stockage des fichiers uploadés
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -23,5 +25,6 @@ router.get("/:id", eventController.getEventById);
 router.post("/", upload.single("image"), eventController.createEvent);
 router.put("/:id", upload.single("image"), eventController.updateEvent);
 router.delete("/:id", eventController.deleteEvent);
+
 
 module.exports = router;
