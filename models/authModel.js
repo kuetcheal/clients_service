@@ -54,13 +54,28 @@ const AuthModel = {
   /**
    * ✅ RECHERCHER UN UTILISATEUR PAR EMAIL
    */
-  findByEmail: (mail, callback) => {
-    const sql = "SELECT * FROM client WHERE mail = ? LIMIT 1";
-    db.query(sql, [mail], (err, rows) => {
-      if (err) return callback(err);
-      return callback(null, rows);
-    });
-  },
+// ✅ Recherche d’un utilisateur par adresse e-mail
+findByEmail: (mail, callback) => {
+  // Log pour debug
+  console.log("🔍 findByEmail mail reçu :", `"${mail}"`);
+
+  const sql = `
+    SELECT * 
+    FROM client 
+    WHERE LOWER(TRIM(mail)) = LOWER(TRIM(?))
+    LIMIT 1
+  `;
+
+  db.query(sql, [mail], (err, rows) => {
+    if (err) {
+      console.error("❌ Erreur SQL findByEmail :", err);
+      return callback(err);
+    }
+    console.log("✅ findByEmail nb de lignes :", rows.length);
+    return callback(null, rows);
+  });
+},
+
 
 
   /**
