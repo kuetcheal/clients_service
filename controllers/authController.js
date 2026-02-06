@@ -3,11 +3,11 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const AuthModel = require("../models/authModel");
 const { sendMail } = require("../services/mailer");
-const { geocodeAdresse } = require("../services/geocode"); 
+const { geocodeAdresse } = require("../services/geocode");
 
 const SECRET = process.env.JWT_SECRET;
 
-//  INSCRIPTION AVEC CODE DE VÉRIFICATION + GÉOCODAGE ADRESSE
+// ✅ INSCRIPTION AVEC CODE + GÉOCODAGE
 exports.register = async (req, res) => {
   try {
     const { nom, mail, numero_telephone, password, Adresse, code_postal } = req.body;
@@ -16,28 +16,23 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: "Tous les champs sont requis" });
     }
 
-    // 1️⃣ Générer un code à 6 chiffres aléatoire
     const verificationCode = Math.floor(100000 + Math.random() * 900000);
 
-    // 2️⃣ Construire l'adresse complète pour le géocodage
     const adresseComplete = `${Adresse}, ${code_postal}, France`;
 
     let latitude = null;
     let longitude = null;
 
     try {
-      // 3️⃣ Géocoder l'adresse (Nominatim / autre) → latitude / longitude
       const coords = await geocodeAdresse(adresseComplete);
       if (coords) {
         latitude = coords.latitude;
         longitude = coords.longitude;
       }
     } catch (e) {
-      console.error("Erreur lors du géocodage de l'adresse :", e.message);
-      // On continue même si le géocodage échoue (coords null)
+      console.error("Erreur lors du géocodage :", e.message);
     }
 
-    // 4️⃣ Enregistrer l'utilisateur + le code + les coordonnées GPS
     AuthModel.register(
       {
         nom,
@@ -53,7 +48,6 @@ exports.register = async (req, res) => {
       async (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
 
-        // 5️⃣ Envoyer le code par e-mail
         const subject = "Vérification de votre compte 🎯";
         const html = `
           <h2>Bienvenue ${nom} !</h2>
@@ -65,9 +59,9 @@ exports.register = async (req, res) => {
 
         try {
           await sendMail(mail, subject, html);
-          console.log(" Code de vérification envoyé à :", mail);
+          console.log("📨 Code envoyé à :", mail);
         } catch (e) {
-          console.error("Erreur d'envoi du mail :", e);
+          console.error("Erreur envoi mail :", e);
         }
 
         return res.status(201).json({
@@ -77,7 +71,7 @@ exports.register = async (req, res) => {
       }
     );
   } catch (err) {
-    console.error(err);
+    console.error("Erreur register:", err);
     return res.status(500).json({ error: "Erreur serveur" });
   }
 };
@@ -86,20 +80,18 @@ exports.register = async (req, res) => {
 exports.verifyCode = (req, res) => {
   const { mail, code } = req.body;
 
-  if (!mail || !code) {
+  if (!mail || code === undefined || code === null) {
     return res.status(400).json({ error: "Mail et code requis" });
   }
 
   AuthModel.findByEmail(mail, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!results.length) {
-      return res.status(404).json({ error: "Utilisateur introuvable" });
-    }
+    if (!results.length) return res.status(404).json({ error: "Utilisateur introuvable" });
 
     const user = results[0];
 
-    if (user.verification_code === code) {
-      // ✅ Marquer comme vérifié
+    // ⚠️ Compare en string pour éviter le souci number/string
+    if (String(user.verification_code) === String(code)) {
       AuthModel.markAsVerified(mail, (err2) => {
         if (err2) return res.status(500).json({ error: err2.message });
         return res.json({ message: "Compte vérifié avec succès 🎉" });
@@ -110,19 +102,15 @@ exports.verifyCode = (req, res) => {
   });
 };
 
-// ✅ RÉENVOYER LE CODE DE VÉRIFICATION
+// ✅ RÉENVOYER LE CODE
 exports.resendCode = (req, res) => {
   const { mail } = req.body;
 
-  if (!mail) {
-    return res.status(400).json({ error: "L'adresse e-mail est requise" });
-  }
+  if (!mail) return res.status(400).json({ error: "L'adresse e-mail est requise" });
 
   AuthModel.findByEmail(mail, async (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!results.length) {
-      return res.status(404).json({ error: "Utilisateur introuvable" });
-    }
+    if (!results.length) return res.status(404).json({ error: "Utilisateur introuvable" });
 
     const user = results[0];
 
@@ -130,14 +118,11 @@ exports.resendCode = (req, res) => {
       return res.status(400).json({ error: "Ce compte est déjà vérifié ✅" });
     }
 
-    // 1️⃣ Nouveau code à 6 chiffres
     const newCode = Math.floor(100000 + Math.random() * 900000);
 
-    // 2️⃣ Mettre à jour la base
     AuthModel.updateVerificationCode(mail, newCode, async (err2) => {
       if (err2) return res.status(500).json({ error: err2.message });
 
-      // 3️⃣ Envoyer le nouveau code par e-mail
       const subject = "Nouveau code de vérification 🔁";
       const html = `
         <h2>Bonjour ${user.nom || ""},</h2>
@@ -168,29 +153,18 @@ exports.login = (req, res) => {
 
   AuthModel.findByEmail(mail, async (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!results.length) {
-      return res.status(401).json({ message: "Mail invalide" });
-    }
+    if (!results.length) return res.status(401).json({ message: "Mail invalide" });
 
     const user = results[0];
 
-    // Vérifier si le compte est activé
     if (!user.verified) {
-      return res
-        .status(401)
-        .json({ error: "Veuillez d'abord vérifier votre compte." });
+      return res.status(401).json({ error: "Veuillez d'abord vérifier votre compte." });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Mot de passe invalide" });
-    }
+    if (!isMatch) return res.status(401).json({ message: "Mot de passe invalide" });
 
-    const token = jwt.sign(
-      { userId: user.id, mail: user.mail },
-      SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = jwt.sign({ userId: user.id, mail: user.mail }, SECRET, { expiresIn: "7d" });
 
     return res.json({
       token,
@@ -201,8 +175,8 @@ exports.login = (req, res) => {
         Adresse: user.Adresse,
         code_postal: user.code_postal,
         numero_telephone: user.numero_telephone,
-        latitude: user.latitude,      // 🔹 renvoyé au front
-        longitude: user.longitude,    // 🔹 renvoyé au front
+        latitude: user.latitude,
+        longitude: user.longitude,
       },
     });
   });
@@ -212,36 +186,25 @@ exports.login = (req, res) => {
 exports.forgotPassword = async (req, res) => {
   const { mail } = req.body;
 
-  if (!mail) {
-    return res.status(400).json({ error: "L'adresse e-mail est requise" });
-  }
+  if (!mail) return res.status(400).json({ error: "L'adresse e-mail est requise" });
 
   try {
-    // Vérifie si un compte existe
     AuthModel.findByEmail(mail, async (err, results) => {
       if (err) return res.status(500).json({ error: "Erreur serveur MySQL" });
 
-      // Message générique pour éviter de révéler les adresses valides
       const messageUtilisateur =
         "Si cet e-mail est associé à un compte, vous recevrez un lien pour réinitialiser votre mot de passe.";
 
-      // Si aucun compte ne correspond, on répond quand même 200
       if (!results.length) {
         return res.status(200).json({ message: messageUtilisateur });
       }
 
-      // Si le compte existe, on envoie le mail
       const user = results[0];
-      const resetToken = jwt.sign(
-        { mail: user.mail },
-        process.env.JWT_SECRET,
-        { expiresIn: "15m" }
-      );
+      const resetToken = jwt.sign({ mail: user.mail }, process.env.JWT_SECRET, { expiresIn: "15m" });
 
       const resetLink = `http://192.168.1.53:3000/api/auth/reset-password/${resetToken}`;
 
-      // Envoi du mail
-      const subject = "Réinitialisation de votre mot de passe 🔒";
+      const subject = "Réinitialisation de votre mot de passe ";
       const html = `
         <h2>Bonjour ${user.nom || ""},</h2>
         <p>Vous avez demandé à réinitialiser votre mot de passe.</p>
@@ -256,12 +219,11 @@ exports.forgotPassword = async (req, res) => {
 
       try {
         await sendMail(mail, subject, html);
-        console.log("📨 Mail de réinitialisation envoyé à :", mail);
+        console.log("Mail reset envoyé à :", mail);
       } catch (e) {
         console.error("Erreur d'envoi du mail :", e);
       }
 
-      // Réponse au front Flutter
       return res.status(200).json({ message: messageUtilisateur });
     });
   } catch (err) {

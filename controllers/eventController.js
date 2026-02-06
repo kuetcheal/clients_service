@@ -1,18 +1,16 @@
 // controllers/eventController.js
 const EventModel = require("../models/eventModel");
-const AuthModel = require("../models/authModel");        
-const db = require("../services/db");                  
-const { geocodeAdresse } = require("../services/geocode"); 
-const path = require("path");
+const AuthModel = require("../models/authModel");
+const pool = require("../services/db"); // ✅ pool mysql2/promise
+const { geocodeAdresse } = require("../services/geocode");
 
 const BASE_URL = "http://localhost:3000";
 
-//  Récupérer tous les événements
+// ✅ Récupérer tous les événements
 exports.getAllEvents = (req, res) => {
   EventModel.getAll((err, results) => {
     if (err) return res.status(500).json({ error: err.message });
 
-    // Headers pour React-Admin
     res.setHeader("Access-Control-Expose-Headers", "Content-Range");
     res.setHeader("Content-Range", `events 0-${results.length}/${results.length}`);
 
@@ -20,32 +18,29 @@ exports.getAllEvents = (req, res) => {
   });
 };
 
-//  Récupérer un seul événement
+// ✅ Récupérer un seul événement
 exports.getEventById = (req, res) => {
   const { id } = req.params;
+
   EventModel.getById(id, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (results.length === 0)
-      return res.status(404).json({ message: "Événement non trouvé" });
+    if (results.length === 0) return res.status(404).json({ message: "Événement non trouvé" });
+
     res.status(200).json(results[0]);
   });
 };
 
-//  Créer un événement (avec géocodage de location + city)
+// ✅ Créer un événement (avec géocodage)
 exports.createEvent = async (req, res) => {
   try {
     const data = { ...req.body };
 
-    // Gestion image uploadée
     if (req.file) {
       data.image_url = `${BASE_URL}/uploads/events/${req.file.filename}`;
     }
 
-    // On s'assure que location et city existent au moins
     const location = data.location || "";
     const city = data.city || "";
-
-    // Adresse complète pour le géocodage
     const adresseComplete = `${location}, ${city}, France`;
 
     let latitude = null;
@@ -59,7 +54,6 @@ exports.createEvent = async (req, res) => {
       }
     } catch (e) {
       console.error("Erreur géocodage event :", e.message);
-      // On ne bloque pas la création si le géocodage échoue
     }
 
     data.latitude = latitude;
@@ -82,7 +76,7 @@ exports.createEvent = async (req, res) => {
   }
 };
 
-//  Mettre à jour un événement (en régénérant éventuellement les coordonnées)
+// ✅ Mettre à jour un événement
 exports.updateEvent = async (req, res) => {
   try {
     const { id } = req.params;
@@ -92,11 +86,9 @@ exports.updateEvent = async (req, res) => {
       data.image_url = `${BASE_URL}/uploads/events/${req.file.filename}`;
     }
 
-    // Si location ou city ont changé, on peut regéocoder
     if (data.location || data.city) {
       const location = data.location || "";
       const city = data.city || "";
-
       const adresseComplete = `${location}, ${city}, France`;
 
       let latitude = null;
@@ -118,8 +110,9 @@ exports.updateEvent = async (req, res) => {
 
     EventModel.update(id, data, (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
-      if (result.affectedRows === 0)
+      if (result.affectedRows === 0) {
         return res.status(404).json({ message: "Événement non trouvé" });
+      }
 
       res.json({
         message: "Événement mis à jour avec succès",
@@ -134,21 +127,20 @@ exports.updateEvent = async (req, res) => {
   }
 };
 
-//  Supprimer un événement
+// ✅ Supprimer un événement
 exports.deleteEvent = (req, res) => {
   const { id } = req.params;
+
   EventModel.delete(id, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (result.affectedRows === 0)
-      return res.status(404).json({ message: "Événement non trouvé" });
+    if (result.affectedRows === 0) return res.status(404).json({ message: "Événement non trouvé" });
+
     res.json({ message: "Événement supprimé avec succès" });
   });
 };
 
-
 // ✅ Récupérer les 10 événements les plus proches d'un utilisateur
 exports.getNearbyEventsForUser = (req, res) => {
-  // On accepte mail en query, params ou body pour être safe
   const mail =
     (req.query && req.query.mail) ||
     (req.params && req.params.mail) ||
@@ -157,19 +149,13 @@ exports.getNearbyEventsForUser = (req, res) => {
   if (!mail || mail.trim() === "") {
     return res.status(400).json({
       error: "Le mail de l'utilisateur est requis",
-      debug: {
-        query: req.query,
-        params: req.params,
-      },
+      debug: { query: req.query, params: req.params },
     });
   }
 
-  // 1️⃣ Récupérer l'utilisateur pour avoir latitude / longitude
-  AuthModel.findByEmail(mail, (err, users) => {
+  AuthModel.findByEmail(mail, async (err, users) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!users.length) {
-      return res.status(404).json({ error: "Utilisateur introuvable" });
-    }
+    if (!users.length) return res.status(404).json({ error: "Utilisateur introuvable" });
 
     const user = users[0];
 
@@ -181,21 +167,11 @@ exports.getNearbyEventsForUser = (req, res) => {
 
     const { latitude, longitude } = user;
 
-    // 2️⃣ Requête SQL pour récupérer les 10 events les plus proches
     const sql = `
       SELECT 
-        id,
-        title,
-        description,
-        date_event,
-        time_event,
-        location,
-        city,
-        image_url,
-        ticket_url,
-        event_type,
-        latitude,
-        longitude,
+        id, title, description, date_event, time_event,
+        location, city, image_url, ticket_url, event_type,
+        latitude, longitude,
         (6371 * acos(
           cos(radians(?)) * cos(radians(latitude)) *
           cos(radians(longitude) - radians(?)) +
@@ -208,9 +184,11 @@ exports.getNearbyEventsForUser = (req, res) => {
       LIMIT 10;
     `;
 
-    db.query(sql, [latitude, longitude, latitude], (err2, events) => {
-      if (err2) return res.status(500).json({ error: err2.message });
-      return res.json(events);
-    });
+    try {
+      const [rows] = await pool.query(sql, [latitude, longitude, latitude]);
+      return res.json(rows);
+    } catch (err2) {
+      return res.status(500).json({ error: err2.message });
+    }
   });
 };

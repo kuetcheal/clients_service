@@ -1,10 +1,8 @@
-
-const db = require("../services/db");
+// models/authModel.js
+const pool = require("../services/db");
 const bcrypt = require("bcrypt");
 
 const AuthModel = {
-
-  
   register: async (
     {
       nom,
@@ -15,7 +13,7 @@ const AuthModel = {
       Adresse,
       code_postal,
       latitude,
-      longitude
+      longitude,
     },
     callback
   ) => {
@@ -23,7 +21,7 @@ const AuthModel = {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const sql = `
-        INSERT INTO client 
+        INSERT INTO client
         (nom, mail, numero_telephone, password, verification_code, verified, Adresse, code_postal, latitude, longitude)
         VALUES (?, ?, ?, ?, ?, false, ?, ?, ?, ?)
       `;
@@ -37,70 +35,56 @@ const AuthModel = {
         Adresse,
         code_postal,
         latitude,
-        longitude
+        longitude,
       ];
 
-      db.query(sql, values, (err, result) => {
-        if (err) return callback(err);
-        return callback(null, result);
-      });
-
+      pool
+        .query(sql, values)
+        .then(([result]) => callback(null, result))
+        .catch((err) => callback(err));
     } catch (err) {
       return callback(err);
     }
   },
 
+  findByEmail: (mail, callback) => {
+    console.log("🔍 findByEmail mail reçu :", mail);
 
-  /**
-   * ✅ RECHERCHER UN UTILISATEUR PAR EMAIL
-   */
-// ✅ Recherche d’un utilisateur par adresse e-mail
-findByEmail: (mail, callback) => {
-  // Log pour debug
-  console.log("🔍 findByEmail mail reçu :", `"${mail}"`);
+    const sql = `
+      SELECT *
+      FROM client
+      WHERE LOWER(TRIM(mail)) = LOWER(TRIM(?))
+      LIMIT 1
+    `;
 
-  const sql = `
-    SELECT * 
-    FROM client 
-    WHERE LOWER(TRIM(mail)) = LOWER(TRIM(?))
-    LIMIT 1
-  `;
-
-  db.query(sql, [mail], (err, rows) => {
-    if (err) {
-      console.error("❌ Erreur SQL findByEmail :", err);
-      return callback(err);
-    }
-    console.log("✅ findByEmail nb de lignes :", rows.length);
-    return callback(null, rows);
-  });
-},
-
-
-
-  /**
-   * ✅ MARQUER L'UTILISATEUR COMME VÉRIFIÉ
-   */
-  markAsVerified: (mail, callback) => {
-    const sql = "UPDATE client SET verified = true, verification_code = NULL WHERE mail = ?";
-    db.query(sql, [mail], (err, result) => {
-      if (err) return callback(err);
-      return callback(null, result);
-    });
+    pool
+      .query(sql, [mail])
+      .then(([rows]) => {
+        console.log("✅ findByEmail nb de lignes :", rows.length);
+        return callback(null, rows);
+      })
+      .catch((err) => {
+        console.error("❌ Erreur SQL findByEmail :", err);
+        return callback(err);
+      });
   },
 
+  markAsVerified: (mail, callback) => {
+    const sql =
+      "UPDATE client SET verified = true, verification_code = NULL WHERE mail = ?";
+    pool
+      .query(sql, [mail])
+      .then(([result]) => callback(null, result))
+      .catch((err) => callback(err));
+  },
 
-  /**
-   * ✅ METTRE À JOUR LE CODE DE VÉRIFICATION
-   */
   updateVerificationCode: (mail, newCode, callback) => {
     const sql = "UPDATE client SET verification_code = ? WHERE mail = ?";
-    db.query(sql, [newCode, mail], (err, result) => {
-      if (err) return callback(err);
-      return callback(null, result);
-    });
-  }
-
+    pool
+      .query(sql, [newCode, mail])
+      .then(([result]) => callback(null, result))
+      .catch((err) => callback(err));
+  },
 };
 
 module.exports = AuthModel;

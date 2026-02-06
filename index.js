@@ -1,8 +1,9 @@
+// index.js
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 require("dotenv").config();
-const db = require("./services/db");
+require("./services/db"); // ✅ initialise le pool + log "Pool connecté"
 const authRoutes = require("./routes/authRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const eventRoutes = require("./routes/eventRoutes");
@@ -18,16 +19,17 @@ app.use(bodyParser.json());
 // Rendre les images accessibles publiquement
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ✅ Route racine pour test
+// ✅ Route racine
 app.get("/", (req, res) => {
   res.json({
-    message: "Bienvenue sur l’API Clients Service ",
+    message: "Bienvenue sur l’API Clients Service",
     status: "API opérationnelle",
     endpoints: {
       clients: "/api/clients",
       events: "/api/events",
-      auth: "/api/auth"
-    }
+      auth: "/api/auth",
+      contact: "/api/contact",
+    },
   });
 });
 

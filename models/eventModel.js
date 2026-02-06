@@ -1,18 +1,21 @@
 // models/eventModel.js
-const db = require('../services/db');
+const pool = require("../services/db");
 
 const EventModel = {
-  //  Récupérer tous les événements
   getAll: (callback) => {
-    db.query('SELECT * FROM event ORDER BY date_event ASC', callback);
+    pool
+      .query("SELECT * FROM event ORDER BY date_event ASC")
+      .then(([rows]) => callback(null, rows))
+      .catch((err) => callback(err));
   },
 
-  //  Récupérer un seul événement
   getById: (id, callback) => {
-    db.query('SELECT * FROM event WHERE id = ?', [id], callback);
+    pool
+      .query("SELECT * FROM event WHERE id = ?", [id])
+      .then(([rows]) => callback(null, rows))
+      .catch((err) => callback(err));
   },
 
-  //  Créer un événement (ENREGISTRE latitude + longitude)
   create: (data, callback) => {
     const {
       title,
@@ -28,24 +31,17 @@ const EventModel = {
       longitude,
     } = data;
 
-    db.query(
-      `
+    const sql = `
       INSERT INTO event (
-        title,
-        description,
-        date_event,
-        time_event,
-        location,
-        city,
-        image_url,
-        ticket_url,
-        event_type,
-        latitude,
-        longitude
+        title, description, date_event, time_event,
+        location, city, image_url, ticket_url, event_type,
+        latitude, longitude
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-      [
+    `;
+
+    pool
+      .query(sql, [
         title || null,
         description || null,
         date_event || null,
@@ -56,13 +52,12 @@ const EventModel = {
         ticket_url || null,
         event_type || null,
         latitude || null,
-        longitude || null
-      ],
-      callback
-    );
+        longitude || null,
+      ])
+      .then(([result]) => callback(null, result))
+      .catch((err) => callback(err));
   },
 
-  //  Mettre à jour un événement (INCLUT latitude + longitude)
   update: (id, data, callback) => {
     const {
       title,
@@ -78,24 +73,25 @@ const EventModel = {
       longitude,
     } = data;
 
-    db.query(
-      `
+    const sql = `
       UPDATE event
-      SET 
-        title = ?, 
-        description = ?, 
-        date_event = ?, 
-        time_event = ?, 
-        location = ?, 
-        city = ?, 
-        image_url = ?, 
-        ticket_url = ?, 
+      SET
+        title = ?,
+        description = ?,
+        date_event = ?,
+        time_event = ?,
+        location = ?,
+        city = ?,
+        image_url = ?,
+        ticket_url = ?,
         event_type = ?,
         latitude = ?,
         longitude = ?
       WHERE id = ?
-      `,
-      [
+    `;
+
+    pool
+      .query(sql, [
         title || null,
         description || null,
         date_event || null,
@@ -107,15 +103,17 @@ const EventModel = {
         event_type || null,
         latitude || null,
         longitude || null,
-        id
-      ],
-      callback
-    );
+        id,
+      ])
+      .then(([result]) => callback(null, result))
+      .catch((err) => callback(err));
   },
 
-  //  Supprimer un événement
   delete: (id, callback) => {
-    db.query('DELETE FROM event WHERE id = ?', [id], callback);
+    pool
+      .query("DELETE FROM event WHERE id = ?", [id])
+      .then(([result]) => callback(null, result))
+      .catch((err) => callback(err));
   },
 };
 
