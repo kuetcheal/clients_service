@@ -16,3 +16,10 @@
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsImlhdCI6MTc1OTY0NjQ2NCwiZXhwIjoxNzU5NjUwMDY0fQ.rJrYPjmiAg_la8axHJpV9boO5qK86TwuqwQNqI6s0rY
 
 const SECRET = process.env.JWT_SECRET; // Clé dans .env
+
+
+
+#### mysql2/promise + connection pool
+nous avons utilsé mysql2, mais avec Promises et gestion automatique des connexions  car étant ds un environnement Render + OVH, 
+- Les callbacks cassent facilement en cloud, pour notre car Sur Render les connexions MySQL étaient coupées
+- Le pool gère ça pour toi en ouvrant plusieurs connexions, en réutilisant les connexions valides, en recréant automatiquement si OVH en ferme une

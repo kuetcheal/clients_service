@@ -1,10 +1,8 @@
 // controllers/eventController.js
 const EventModel = require("../models/eventModel");
 const AuthModel = require("../models/authModel");
-const pool = require("../services/db"); // ✅ pool mysql2/promise
+const pool = require("../services/db");
 const { geocodeAdresse } = require("../services/geocode");
-
-const BASE_URL = "http://localhost:3000";
 
 // ✅ Récupérer tous les événements
 exports.getAllEvents = (req, res) => {
@@ -24,19 +22,20 @@ exports.getEventById = (req, res) => {
 
   EventModel.getById(id, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (results.length === 0) return res.status(404).json({ message: "Événement non trouvé" });
+    if (!results.length) return res.status(404).json({ message: "Événement non trouvé" });
 
     res.status(200).json(results[0]);
   });
 };
 
-// ✅ Créer un événement (avec géocodage)
+// ✅ Créer un événement (Cloudinary + géocodage)
 exports.createEvent = async (req, res) => {
   try {
     const data = { ...req.body };
 
+    // ✅ image Cloudinary
     if (req.file) {
-      data.image_url = `${BASE_URL}/uploads/events/${req.file.filename}`;
+      data.image_url = req.file.path; // URL Cloudinary
     }
 
     const location = data.location || "";
@@ -76,16 +75,18 @@ exports.createEvent = async (req, res) => {
   }
 };
 
-// ✅ Mettre à jour un événement
+// ✅ Mettre à jour un événement (Cloudinary + géocodage si besoin)
 exports.updateEvent = async (req, res) => {
   try {
     const { id } = req.params;
     const data = { ...req.body };
 
+    // ✅ image Cloudinary
     if (req.file) {
-      data.image_url = `${BASE_URL}/uploads/events/${req.file.filename}`;
+      data.image_url = req.file.path;
     }
 
+    // Si location/city changent, regéocoder
     if (data.location || data.city) {
       const location = data.location || "";
       const city = data.city || "";
@@ -117,8 +118,8 @@ exports.updateEvent = async (req, res) => {
       res.json({
         message: "Événement mis à jour avec succès",
         image_url: data.image_url || null,
-        latitude: data.latitude || null,
-        longitude: data.longitude || null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
       });
     });
   } catch (err) {
