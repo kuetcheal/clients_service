@@ -3,7 +3,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 require("dotenv").config();
-require("./services/db"); // ✅ initialise le pool + log "Pool connecté"
+require("./services/db"); 
 const authRoutes = require("./routes/authRoutes");
 const clientRoutes = require("./routes/clientRoutes");
 const eventRoutes = require("./routes/eventRoutes");
@@ -19,7 +19,7 @@ app.use(bodyParser.json());
 // Rendre les images accessibles publiquement
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ✅ Route racine
+//  Route racine
 app.get("/", (req, res) => {
   res.json({
     message: "Bienvenue sur l’API Clients Service",
@@ -40,5 +40,5 @@ app.use("/api/events", eventRoutes);
 app.use("/api/contact", contactRoutes);
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Serveur démarré sur http://0.0.0.0:${PORT}`);
+  console.log(` Serveur démarré sur http://0.0.0.0:${PORT}`);
 });

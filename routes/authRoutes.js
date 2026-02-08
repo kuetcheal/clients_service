@@ -9,10 +9,8 @@ router.post("/login", authController.login);
 router.post("/verify", authController.verifyCode);
 router.post("/resend-code", authController.resendCode);
 
-// ✅ Mot de passe oublié
+// ✅ Forgot / Reset password
 router.post("/forgot-password", authController.forgotPassword);
-
-// ✅ Reset password (page + action)
 router.get("/reset-password/:token", authController.renderResetPasswordPage);
 router.post("/reset-password/:token", authController.resetPassword);
 

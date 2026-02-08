@@ -14,6 +14,12 @@ function assertJwtSecret() {
   }
 }
 
+// helper URL (Render)
+function getAppUrl() {
+  const appUrl = (process.env.APP_URL || "").trim().replace(/\/$/, "");
+  return appUrl;
+}
+
 // ✅ INSCRIPTION
 exports.register = async (req, res) => {
   try {
@@ -193,12 +199,11 @@ exports.login = (req, res) => {
   }
 };
 
-// ✅ MOT DE PASSE OUBLIÉ (lien PUBLIC Render)
+// ✅ MOT DE PASSE OUBLIÉ
 exports.forgotPassword = async (req, res) => {
   const { mail } = req.body;
   if (!mail) return res.status(400).json({ error: "L'adresse e-mail est requise" });
 
-  // Toujours le même message (anti-enum)
   const messageUtilisateur =
     "Si cet e-mail est associé à un compte, vous recevrez un lien pour réinitialiser votre mot de passe.";
 
@@ -214,16 +219,13 @@ exports.forgotPassword = async (req, res) => {
 
       const user = results[0];
 
-      // token 15 min
       const resetToken = jwt.sign(
         { mail: user.mail, purpose: "reset_password" },
         SECRET,
         { expiresIn: "15m" }
       );
 
-      // ✅ URL de ton backend PUBLIC (Render)
-      // Mets APP_URL sur Render => https://site-evenement.onrender.com
-      const appUrl = (process.env.APP_URL || "").replace(/\/$/, "");
+      const appUrl = getAppUrl();
       if (!appUrl) {
         console.warn("⚠️ APP_URL manquant. Ajoute APP_URL dans Render.");
       }
@@ -259,11 +261,10 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// ✅ PAGE HTML (2 champs) SERVIE PAR LE BACKEND
+// ✅ PAGE HTML (2 champs)
 exports.renderResetPasswordPage = (req, res) => {
   const { token } = req.params;
 
-  // On vérifie juste que le token est valide pour afficher la page
   try {
     assertJwtSecret();
 
@@ -272,7 +273,11 @@ exports.renderResetPasswordPage = (req, res) => {
       return res.status(400).send("Lien invalide.");
     }
 
-    // Petite page simple
+    const appUrl = getAppUrl() || ""; // si vide => fetch relative (au pire)
+    const postUrl = appUrl
+      ? `${appUrl}/api/auth/reset-password/${token}`
+      : `/api/auth/reset-password/${token}`;
+
     const html = `<!doctype html>
 <html lang="fr">
 <head>
@@ -306,12 +311,11 @@ exports.renderResetPasswordPage = (req, res) => {
     <button id="btn">Valider</button>
     <div id="msg" class="msg"></div>
 
-    <div class="muted">
-      Le lien expire après 15 minutes.
-    </div>
+    <div class="muted">Le lien expire après 15 minutes.</div>
   </div>
 
 <script>
+  const POST_URL = ${JSON.stringify(postUrl)};
   const btn = document.getElementById('btn');
   const msg = document.getElementById('msg');
   const p1 = document.getElementById('p1');
@@ -333,20 +337,16 @@ exports.renderResetPasswordPage = (req, res) => {
 
     btn.disabled = true;
     try {
-      const r = await fetch(location.pathname, {
+      const r = await fetch(POST_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: a, confirmPassword: b })
       });
       const data = await r.json().catch(() => ({}));
-
-      if (r.ok) {
-        show(data.message || "Mot de passe mis à jour ✅", true);
-        return;
-      }
-      show(data.error || "Erreur lors de la réinitialisation.", false);
+      if (r.ok) return show(data.message || "Mot de passe mis à jour ✅", true);
+      return show(data.error || "Erreur lors de la réinitialisation.", false);
     } catch(e){
-      show("Erreur réseau.", false);
+      return show("Erreur réseau.", false);
     } finally {
       btn.disabled = false;
     }
@@ -362,7 +362,7 @@ exports.renderResetPasswordPage = (req, res) => {
   }
 };
 
-// ✅ ACTION RESET : compare ancien mot de passe, refuse si identique
+// ✅ ACTION RESET
 exports.resetPassword = async (req, res) => {
   const { token } = req.params;
   const { password, confirmPassword } = req.body;
@@ -393,7 +393,7 @@ exports.resetPassword = async (req, res) => {
 
       const user = results[0];
 
-      // ✅ Refuser si même mot de passe qu'avant
+      // ✅ refuser si même mot de passe
       const sameAsOld = await bcrypt.compare(password, user.password);
       if (sameAsOld) {
         return res.status(400).json({ error: "Mot de passe déjà utilisé. Choisissez-en un autre." });
@@ -401,10 +401,10 @@ exports.resetPassword = async (req, res) => {
 
       const hashed = await bcrypt.hash(password, 10);
 
-      // update en DB
       AuthModel.updatePasswordByEmail(mail, hashed, (err2) => {
-        if (err2) return res.status(500).json({ error: "Impossible de mettre à jour le mot de passe." });
-
+        if (err2) {
+          return res.status(500).json({ error: "Impossible de mettre à jour le mot de passe." });
+        }
         return res.status(200).json({ message: "Mot de passe modifié avec succès ✅" });
       });
     });
