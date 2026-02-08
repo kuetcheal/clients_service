@@ -4,13 +4,54 @@ const AuthModel = require("../models/authModel");
 const pool = require("../services/db");
 const { geocodeAdresse } = require("../services/geocode");
 
+// ----------------------------
+// Utils (anti "" + conversion)
+// ----------------------------
+const emptyToNull = (v) => {
+  if (v === undefined || v === null) return null;
+  if (typeof v === "string" && v.trim() === "") return null;
+  return v;
+};
+
+const toNumberOrNull = (v) => {
+  const cleaned = emptyToNull(v);
+  if (cleaned === null) return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+};
+
+const normalizeEventPayload = (body) => {
+  const data = { ...body };
+
+  // Strings / nullable strings
+  data.title = emptyToNull(data.title);
+  data.description = emptyToNull(data.description);
+  data.location = emptyToNull(data.location);
+  data.city = emptyToNull(data.city);
+  data.ticket_url = emptyToNull(data.ticket_url);
+  data.event_type = emptyToNull(data.event_type);
+
+  // Date & time (si vide -> null)
+  data.date_event = emptyToNull(data.date_event);
+  data.time_event = emptyToNull(data.time_event);
+
+  // Doubles ("" -> null / "43.6" -> 43.6)
+  data.latitude = toNumberOrNull(data.latitude);
+  data.longitude = toNumberOrNull(data.longitude);
+
+  return data;
+};
+
 // ✅ Récupérer tous les événements
 exports.getAllEvents = (req, res) => {
   EventModel.getAll((err, results) => {
     if (err) return res.status(500).json({ error: err.message });
 
     res.setHeader("Access-Control-Expose-Headers", "Content-Range");
-    res.setHeader("Content-Range", `events 0-${results.length}/${results.length}`);
+    res.setHeader(
+      "Content-Range",
+      `events 0-${results.length}/${results.length}`
+    );
 
     res.status(200).json(results);
   });
@@ -22,7 +63,8 @@ exports.getEventById = (req, res) => {
 
   EventModel.getById(id, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!results.length) return res.status(404).json({ message: "Événement non trouvé" });
+    if (!results.length)
+      return res.status(404).json({ message: "Événement non trouvé" });
 
     res.status(200).json(results[0]);
   });
@@ -31,32 +73,40 @@ exports.getEventById = (req, res) => {
 // ✅ Créer un événement (Cloudinary + géocodage)
 exports.createEvent = async (req, res) => {
   try {
-    const data = { ...req.body };
+    const data = normalizeEventPayload(req.body);
 
-    // ✅ image Cloudinary
+    // ✅ image Cloudinary (multer-storage-cloudinary)
     if (req.file) {
-      data.image_url = req.file.path; // URL Cloudinary
+      // selon lib/config: path est souvent l'URL
+      data.image_url = req.file.path || req.file.secure_url || null;
+    } else {
+      data.image_url = emptyToNull(data.image_url);
     }
 
-    const location = data.location || "";
-    const city = data.city || "";
-    const adresseComplete = `${location}, ${city}, France`;
+    // ✅ Validation minimale (car en DB : NOT NULL sur title/date/time/location)
+    if (!data.title || !data.date_event || !data.time_event || !data.location) {
+      return res.status(400).json({
+        error:
+          "Champs obligatoires: title, date_event, time_event, location",
+      });
+    }
 
-    let latitude = null;
-    let longitude = null;
+    // ✅ Géocodage seulement si coords pas fournies
+    if (data.latitude == null || data.longitude == null) {
+      const location = data.location || "";
+      const city = data.city || "";
+      const adresseComplete = `${location}, ${city}, France`;
 
-    try {
-      const coords = await geocodeAdresse(adresseComplete);
-      if (coords) {
-        latitude = coords.latitude;
-        longitude = coords.longitude;
+      try {
+        const coords = await geocodeAdresse(adresseComplete);
+        if (coords) {
+          data.latitude = coords.latitude ?? data.latitude;
+          data.longitude = coords.longitude ?? data.longitude;
+        }
+      } catch (e) {
+        console.error("Erreur géocodage event :", e.message);
       }
-    } catch (e) {
-      console.error("Erreur géocodage event :", e.message);
     }
-
-    data.latitude = latitude;
-    data.longitude = longitude;
 
     EventModel.create(data, (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -65,8 +115,8 @@ exports.createEvent = async (req, res) => {
         message: "Événement créé avec succès",
         id: result.insertId,
         image_url: data.image_url || null,
-        latitude,
-        longitude,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
       });
     });
   } catch (err) {
@@ -79,34 +129,30 @@ exports.createEvent = async (req, res) => {
 exports.updateEvent = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = { ...req.body };
+    const data = normalizeEventPayload(req.body);
 
     // ✅ image Cloudinary
     if (req.file) {
-      data.image_url = req.file.path;
+      data.image_url = req.file.path || req.file.secure_url || null;
+    } else {
+      data.image_url = emptyToNull(data.image_url);
     }
 
-    // Si location/city changent, regéocoder
-    if (data.location || data.city) {
+    // ✅ Regéocoder seulement si location/city changent ET coords absentes/inutilisables
+    if ((data.location || data.city) && (data.latitude == null || data.longitude == null)) {
       const location = data.location || "";
       const city = data.city || "";
       const adresseComplete = `${location}, ${city}, France`;
 
-      let latitude = null;
-      let longitude = null;
-
       try {
         const coords = await geocodeAdresse(adresseComplete);
         if (coords) {
-          latitude = coords.latitude;
-          longitude = coords.longitude;
+          data.latitude = coords.latitude ?? data.latitude;
+          data.longitude = coords.longitude ?? data.longitude;
         }
       } catch (e) {
         console.error("Erreur géocodage event (update):", e.message);
       }
-
-      data.latitude = latitude;
-      data.longitude = longitude;
     }
 
     EventModel.update(id, data, (err, result) => {
@@ -134,7 +180,8 @@ exports.deleteEvent = (req, res) => {
 
   EventModel.delete(id, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (result.affectedRows === 0) return res.status(404).json({ message: "Événement non trouvé" });
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: "Événement non trouvé" });
 
     res.json({ message: "Événement supprimé avec succès" });
   });
@@ -160,13 +207,14 @@ exports.getNearbyEventsForUser = (req, res) => {
 
     const user = users[0];
 
-    if (!user.latitude || !user.longitude) {
+    const latitude = Number(user.latitude);
+    const longitude = Number(user.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
       return res.status(400).json({
-        error: "Aucune coordonnée géographique pour cet utilisateur",
+        error: "Aucune coordonnée géographique valide pour cet utilisateur",
       });
     }
-
-    const { latitude, longitude } = user;
 
     const sql = `
       SELECT 
