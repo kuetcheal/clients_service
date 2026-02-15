@@ -20,7 +20,7 @@ function getAppUrl() {
   return appUrl;
 }
 
-// ✅ INSCRIPTION
+//  INSCRIPTION
 exports.register = async (req, res) => {
   try {
     assertJwtSecret();
@@ -90,7 +90,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// ✅ VÉRIFICATION DU CODE
+// VÉRIFICATION DU CODE
 exports.verifyCode = (req, res) => {
   const { mail, code } = req.body;
   if (!mail || code === undefined || code === null) {
@@ -114,7 +114,7 @@ exports.verifyCode = (req, res) => {
   });
 };
 
-// ✅ RÉENVOYER LE CODE
+//  RÉENVOYER LE CODE
 exports.resendCode = (req, res) => {
   const { mail } = req.body;
   if (!mail) return res.status(400).json({ error: "L'adresse e-mail est requise" });
@@ -152,7 +152,7 @@ exports.resendCode = (req, res) => {
   });
 };
 
-// ✅ CONNEXION
+//  CONNEXION
 exports.login = (req, res) => {
   try {
     assertJwtSecret();
@@ -199,7 +199,7 @@ exports.login = (req, res) => {
   }
 };
 
-// ✅ MOT DE PASSE OUBLIÉ
+//  MOT DE PASSE OUBLIÉ
 exports.forgotPassword = async (req, res) => {
   const { mail } = req.body;
   if (!mail) return res.status(400).json({ error: "L'adresse e-mail est requise" });
@@ -227,7 +227,7 @@ exports.forgotPassword = async (req, res) => {
 
       const appUrl = getAppUrl();
       if (!appUrl) {
-        console.warn("⚠️ APP_URL manquant. Ajoute APP_URL dans Render.");
+        console.warn(" APP_URL manquant. Ajoute APP_URL dans Render.");
       }
 
       const resetLink = `${appUrl}/api/auth/reset-password/${resetToken}`;

@@ -251,3 +251,49 @@ exports.getNearbyEventsForUser = (req, res) => {
     }
   });
 };
+
+
+// ✅ Récupérer les events proches à partir de coordonnées (lat/lng) (<= radiusKm)
+exports.getNearbyEventsByCoords = async (req, res) => {
+  const latRaw = req.query?.lat;
+  const lngRaw = req.query?.lng;
+
+  // rayon paramétrable, par défaut 25km
+  const radiusKmRaw = req.query?.radiusKm || "25";
+  const radiusKm = Number(radiusKmRaw);
+  const maxRadiusKm = Number.isFinite(radiusKm) ? radiusKm : 25;
+
+  const latitude = Number(latRaw);
+  const longitude = Number(lngRaw);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return res.status(400).json({
+      error: "lat et lng requis (numériques)",
+      debug: { lat: latRaw, lng: lngRaw },
+    });
+  }
+
+  const sql = `
+    SELECT 
+      id, title, description, date_event, time_event,
+      location, city, image_url, ticket_url, event_type,
+      latitude, longitude,
+      (6371 * acos(
+        cos(radians(?)) * cos(radians(latitude)) *
+        cos(radians(longitude) - radians(?)) +
+        sin(radians(?)) * sin(radians(latitude))
+      )) AS distance
+    FROM event
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+    HAVING distance IS NOT NULL AND distance <= ?
+    ORDER BY distance
+    LIMIT 10;
+  `;
+
+  try {
+    const [rows] = await pool.query(sql, [latitude, longitude, latitude, maxRadiusKm]);
+    return res.json(rows);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};

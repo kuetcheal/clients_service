@@ -7,6 +7,10 @@ const upload = require("../middlewares/uploadEventImage");
 // Nearby
 router.get("/nearby/by-user", eventController.getNearbyEventsForUser);
 
+// Nearby (par coordonnées)
+router.get("/nearby", eventController.getNearbyEventsByCoords);
+
+
 // CRUD events
 router.get("/", eventController.getAllEvents);
 router.get("/:id", eventController.getEventById);
