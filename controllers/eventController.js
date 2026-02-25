@@ -4,7 +4,6 @@ const AuthModel = require("../models/authModel");
 const pool = require("../services/db");
 const { geocodeAdresse } = require("../services/geocode");
 
-
 const emptyToNull = (v) => {
   if (v === undefined || v === null) return null;
   if (typeof v === "string" && v.trim() === "") return null;
@@ -40,54 +39,56 @@ const normalizeEventPayload = (body) => {
   return data;
 };
 
-//  Récupérer tous les événements
+// ----------------------------------------
+// GET /api/events
+// ----------------------------------------
 exports.getAllEvents = (req, res) => {
   EventModel.getAll((err, results) => {
     if (err) return res.status(500).json({ error: err.message });
 
     res.setHeader("Access-Control-Expose-Headers", "Content-Range");
-    res.setHeader(
-      "Content-Range",
-      `events 0-${results.length}/${results.length}`
-    );
+    res.setHeader("Content-Range", `events 0-${results.length}/${results.length}`);
 
     res.status(200).json(results);
   });
 };
 
-//  Récupérer un seul événement
+// ----------------------------------------
+// GET /api/events/:id
+// ----------------------------------------
 exports.getEventById = (req, res) => {
   const { id } = req.params;
 
   EventModel.getById(id, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!results.length)
-      return res.status(404).json({ message: "Événement non trouvé" });
+    if (!results.length) return res.status(404).json({ message: "Événement non trouvé" });
 
     res.status(200).json(results[0]);
   });
 };
 
-//  Créer un événement (Cloudinary + géocodage)
+// ----------------------------------------
+// POST /api/events
+// ----------------------------------------
 exports.createEvent = async (req, res) => {
   try {
     const data = normalizeEventPayload(req.body);
 
-    //  image Cloudinary (multer-storage-cloudinary)
+    // image Cloudinary (multer-storage-cloudinary)
     if (req.file) {
       data.image_url = req.file.path || req.file.secure_url || null;
     } else {
       data.image_url = emptyToNull(data.image_url);
     }
 
-    //  Validation minimale (car en DB : NOT NULL sur title/date/time/location)
+    // Validation minimale (car en DB : NOT NULL sur title/date/time/location)
     if (!data.title || !data.date_event || !data.time_event || !data.location) {
       return res.status(400).json({
         error: "Champs obligatoires: title, date_event, time_event, location",
       });
     }
 
-    //  Géocodage seulement si coords pas fournies
+    // Géocodage seulement si coords pas fournies
     if (data.latitude == null || data.longitude == null) {
       const location = data.location || "";
       const city = data.city || "";
@@ -121,24 +122,23 @@ exports.createEvent = async (req, res) => {
   }
 };
 
-// Mettre à jour un événement (Cloudinary + géocodage si besoin)
+// ----------------------------------------
+// PUT /api/events/:id
+// ----------------------------------------
 exports.updateEvent = async (req, res) => {
   try {
     const { id } = req.params;
     const data = normalizeEventPayload(req.body);
 
-    //  image Cloudinary
+    // image Cloudinary
     if (req.file) {
       data.image_url = req.file.path || req.file.secure_url || null;
     } else {
       data.image_url = emptyToNull(data.image_url);
     }
 
-    // Regéocoder seulement si location/city changent ET coords absentes/inutilisables
-    if (
-      (data.location || data.city) &&
-      (data.latitude == null || data.longitude == null)
-    ) {
+    // Regéocoder seulement si location/city changent ET coords absentes
+    if ((data.location || data.city) && (data.latitude == null || data.longitude == null)) {
       const location = data.location || "";
       const city = data.city || "";
       const adresseComplete = `${location}, ${city}, France`;
@@ -156,9 +156,7 @@ exports.updateEvent = async (req, res) => {
 
     EventModel.update(id, data, (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: "Événement non trouvé" });
-      }
+      if (result.affectedRows === 0) return res.status(404).json({ message: "Événement non trouvé" });
 
       res.json({
         message: "Événement mis à jour avec succès",
@@ -173,30 +171,41 @@ exports.updateEvent = async (req, res) => {
   }
 };
 
-//  Supprimer un événement
+// ----------------------------------------
+// DELETE /api/events/:id
+// ----------------------------------------
 exports.deleteEvent = (req, res) => {
   const { id } = req.params;
 
   EventModel.delete(id, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (result.affectedRows === 0)
-      return res.status(404).json({ message: "Événement non trouvé" });
+    if (result.affectedRows === 0) return res.status(404).json({ message: "Événement non trouvé" });
 
     res.json({ message: "Événement supprimé avec succès" });
   });
 };
 
-//  Récupérer les 10 événements les plus proches d'un utilisateur (<= 25km)
+// ----------------------------------------
+// GET /api/events/nearby/by-user?mail=...&radiusKm=25
+// ----------------------------------------
 exports.getNearbyEventsForUser = (req, res) => {
   const mail =
     (req.query && req.query.mail) ||
     (req.params && req.params.mail) ||
     (req.body && req.body.mail);
 
-  //  rayon paramétrable, par défaut 25km
   const radiusKmRaw = (req.query && req.query.radiusKm) || "25";
   const radiusKm = Number(radiusKmRaw);
   const maxRadiusKm = Number.isFinite(radiusKm) ? radiusKm : 25;
+
+  // override coords si fournis
+  const qLat = req.query?.lat;
+  const qLng = req.query?.lng;
+
+  const overrideLat = qLat != null ? Number(qLat) : null;
+  const overrideLng = qLng != null ? Number(qLng) : null;
+
+  const hasOverride = Number.isFinite(overrideLat) && Number.isFinite(overrideLng);
 
   if (!mail || mail.trim() === "") {
     return res.status(400).json({
@@ -205,24 +214,9 @@ exports.getNearbyEventsForUser = (req, res) => {
     });
   }
 
-  AuthModel.findByEmail(mail, async (err, users) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!users.length)
-      return res.status(404).json({ error: "Utilisateur introuvable" });
-
-    const user = users[0];
-
-    const latitude = Number(user.latitude);
-    const longitude = Number(user.longitude);
-
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      return res.status(400).json({
-        error: "Aucune coordonnée géographique valide pour cet utilisateur",
-      });
-    }
-
+  const computeNearby = async (latitude, longitude) => {
     const sql = `
-      SELECT 
+      SELECT
         id, title, description, date_event, time_event,
         location, city, image_url, ticket_url, event_type,
         latitude, longitude,
@@ -238,13 +232,35 @@ exports.getNearbyEventsForUser = (req, res) => {
       LIMIT 10;
     `;
 
+    const [rows] = await pool.query(sql, [latitude, longitude, latitude, maxRadiusKm]);
+    return rows;
+  };
+
+  // Si override => pas besoin DB user
+  if (hasOverride) {
+    computeNearby(overrideLat, overrideLng)
+      .then((rows) => res.json(rows))
+      .catch((err) => res.status(500).json({ error: err.message }));
+    return;
+  }
+
+  // Fallback: coords du user en DB
+  AuthModel.findByEmail(mail, async (err, users) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!users.length) return res.status(404).json({ error: "Utilisateur introuvable" });
+
+    const user = users[0];
+    const latitude = Number(user.latitude);
+    const longitude = Number(user.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return res.status(400).json({
+        error: "Aucune coordonnée géographique valide pour cet utilisateur",
+      });
+    }
+
     try {
-      const [rows] = await pool.query(sql, [
-        latitude,
-        longitude,
-        latitude,
-        maxRadiusKm,
-      ]);
+      const rows = await computeNearby(latitude, longitude);
       return res.json(rows);
     } catch (err2) {
       return res.status(500).json({ error: err2.message });
@@ -252,13 +268,13 @@ exports.getNearbyEventsForUser = (req, res) => {
   });
 };
 
-
-// ✅ Récupérer les events proches à partir de coordonnées (lat/lng) (<= radiusKm)
+// ----------------------------------------
+// GET /api/events/nearby/by-coords?lat=...&lng=...&radiusKm=25
+// ----------------------------------------
 exports.getNearbyEventsByCoords = async (req, res) => {
   const latRaw = req.query?.lat;
   const lngRaw = req.query?.lng;
 
-  // rayon paramétrable, par défaut 25km
   const radiusKmRaw = req.query?.radiusKm || "25";
   const radiusKm = Number(radiusKmRaw);
   const maxRadiusKm = Number.isFinite(radiusKm) ? radiusKm : 25;
@@ -292,6 +308,42 @@ exports.getNearbyEventsByCoords = async (req, res) => {
 
   try {
     const [rows] = await pool.query(sql, [latitude, longitude, latitude, maxRadiusKm]);
+    return res.json(rows);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// ----------------------------------------
+// GET /api/events/updates?since=ISO_DATE&limit=50
+// -> sert au badge "nouveaux events"
+// ----------------------------------------
+exports.getNewEventsSince = async (req, res) => {
+  const sinceRaw = req.query?.since;
+  const limitRaw = req.query?.limit || "50";
+  const limit = Math.min(Number(limitRaw) || 50, 200);
+
+  if (!sinceRaw) {
+    return res.status(400).json({ error: "Paramètre since requis" });
+  }
+
+  const since = new Date(sinceRaw);
+  if (isNaN(since.getTime())) {
+    return res.status(400).json({ error: "since invalide (ISO date attendu)" });
+  }
+
+  const sql = `
+    SELECT id, title, description, date_event, time_event,
+           location, city, image_url, ticket_url, event_type,
+           latitude, longitude, created_at
+    FROM event
+    WHERE created_at > ?
+    ORDER BY created_at DESC
+    LIMIT ?;
+  `;
+
+  try {
+    const [rows] = await pool.query(sql, [since, limit]);
     return res.json(rows);
   } catch (err) {
     return res.status(500).json({ error: err.message });
