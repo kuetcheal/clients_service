@@ -261,7 +261,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// ✅ PAGE HTML (2 champs)
+// ✅ PAGE HTML (2 champs + alert + afficher/masquer mot de passe)
 exports.renderResetPasswordPage = (req, res) => {
   const { token } = req.params;
 
@@ -273,7 +273,7 @@ exports.renderResetPasswordPage = (req, res) => {
       return res.status(400).send("Lien invalide.");
     }
 
-    const appUrl = getAppUrl() || ""; // si vide => fetch relative (au pire)
+    const appUrl = getAppUrl() || "";
     const postUrl = appUrl
       ? `${appUrl}/api/auth/reset-password/${token}`
       : `/api/auth/reset-password/${token}`;
@@ -285,30 +285,174 @@ exports.renderResetPasswordPage = (req, res) => {
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Réinitialisation du mot de passe</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
-    .wrap{max-width:420px;margin:40px auto;background:#fff;padding:22px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
-    h1{font-size:20px;margin:0 0 14px}
-    label{display:block;margin:12px 0 6px;font-weight:600}
-    input{width:100%;padding:12px 12px;border:1px solid #dcdfe6;border-radius:10px;font-size:14px}
-    button{width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:700;cursor:pointer}
-    button:disabled{opacity:.6;cursor:not-allowed}
-    .msg{margin-top:14px;padding:10px;border-radius:10px;display:none}
-    .ok{background:#e9fff0;color:#126b2e;display:block}
-    .err{background:#ffecec;color:#9b1c1c;display:block}
-    .muted{color:#667085;font-size:13px;margin-top:10px}
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 0;
+      background: #f6f7fb;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 460px;
+      background: #fff;
+      padding: 28px;
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0 0 18px;
+      color: #111827;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 8px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .input-wrap {
+      position: relative;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 46px 14px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      font-size: 15px;
+      outline: none;
+      transition: 0.2s ease;
+    }
+
+    input:focus {
+      border-color: #111;
+      box-shadow: 0 0 0 2px rgba(0,0,0,.05);
+    }
+
+    .toggle-password {
+      position: absolute;
+      top: 50%;
+      right: 14px;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0;
+      width: auto;
+      margin: 0;
+      color: #555;
+    }
+
+    .hint {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    .match-text {
+      font-size: 13px;
+      margin-top: 8px;
+      min-height: 18px;
+      font-weight: 500;
+    }
+
+    .match-ok {
+      color: #15803d;
+    }
+
+    .match-error {
+      color: #b91c1c;
+    }
+
+    button.submit-btn {
+      width: 100%;
+      margin-top: 18px;
+      padding: 14px;
+      border: 0;
+      border-radius: 12px;
+      background: #111;
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    button.submit-btn:hover {
+      opacity: 0.95;
+    }
+
+    button.submit-btn:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    .msg {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 12px;
+      display: none;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .ok {
+      background: #e9fff0;
+      color: #126b2e;
+      display: block;
+    }
+
+    .err {
+      background: #ffecec;
+      color: #9b1c1c;
+      display: block;
+    }
+
+    .muted {
+      color: #667085;
+      font-size: 13px;
+      margin-top: 12px;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Réinitialiser votre mot de passe</h1>
 
-    <label>Nouveau mot de passe</label>
-    <input id="p1" type="password" placeholder="Nouveau mot de passe" />
+    <label for="p1">Nouveau mot de passe</label>
+    <div class="input-wrap">
+      <input id="p1" type="password" placeholder="Nouveau mot de passe" />
+      <button type="button" class="toggle-password" onclick="togglePassword('p1', this)">👁️</button>
+    </div>
 
-    <label>Confirmer le mot de passe</label>
-    <input id="p2" type="password" placeholder="Confirmer le mot de passe" />
+    <label for="p2">Confirmer le mot de passe</label>
+    <div class="input-wrap">
+      <input id="p2" type="password" placeholder="Confirmer le mot de passe" />
+      <button type="button" class="toggle-password" onclick="togglePassword('p2', this)">👁️</button>
+    </div>
 
-    <button id="btn">Valider</button>
+    <div class="hint">
+      Les deux champs doivent être strictement identiques.
+    </div>
+
+    <div id="matchText" class="match-text"></div>
+
+    <button id="btn" class="submit-btn">Valider</button>
     <div id="msg" class="msg"></div>
 
     <div class="muted">Le lien expire après 15 minutes.</div>
@@ -320,33 +464,106 @@ exports.renderResetPasswordPage = (req, res) => {
   const msg = document.getElementById('msg');
   const p1 = document.getElementById('p1');
   const p2 = document.getElementById('p2');
+  const matchText = document.getElementById('matchText');
 
-  function show(text, ok){
+  function show(text, ok) {
     msg.textContent = text;
     msg.className = 'msg ' + (ok ? 'ok' : 'err');
+    msg.style.display = 'block';
   }
+
+  function togglePassword(inputId, el) {
+    const input = document.getElementById(inputId);
+    if (input.type === 'password') {
+      input.type = 'text';
+      el.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      el.textContent = '👁️';
+    }
+  }
+
+  function checkPasswordsLive() {
+    const a = p1.value;
+    const b = p2.value;
+
+    if (!a && !b) {
+      matchText.textContent = '';
+      matchText.className = 'match-text';
+      return;
+    }
+
+    if (!a || !b) {
+      matchText.textContent = 'Les deux champs doivent être remplis.';
+      matchText.className = 'match-text match-error';
+      return;
+    }
+
+    if (a === b) {
+      matchText.textContent = 'Les mots de passe correspondent.';
+      matchText.className = 'match-text match-ok';
+    } else {
+      matchText.textContent = 'Les mots de passe ne correspondent pas.';
+      matchText.className = 'match-text match-error';
+    }
+  }
+
+  p1.addEventListener('input', checkPasswordsLive);
+  p2.addEventListener('input', checkPasswordsLive);
 
   btn.addEventListener('click', async () => {
     msg.style.display = 'none';
+
     const a = p1.value.trim();
     const b = p2.value.trim();
 
-    if (!a || !b) return show("Veuillez remplir les deux champs.", false);
-    if (a.length < 6) return show("Mot de passe trop court (min 6 caractères).", false);
-    if (a !== b) return show("Les mots de passe ne correspondent pas.", false);
+    if (!a || !b) {
+      show("Veuillez remplir les deux champs.", false);
+      return;
+    }
+
+    if (a.length < 6) {
+      show("Mot de passe trop court (min 6 caractères).", false);
+      return;
+    }
+
+    if (a !== b) {
+      show("Les mots de passe ne correspondent pas.", false);
+      return;
+    }
 
     btn.disabled = true;
+
     try {
       const r = await fetch(POST_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: a, confirmPassword: b })
+        body: JSON.stringify({
+          password: a,
+          confirmPassword: b
+        })
       });
+
       const data = await r.json().catch(() => ({}));
-      if (r.ok) return show(data.message || "Mot de passe mis à jour ✅", true);
-      return show(data.error || "Erreur lors de la réinitialisation.", false);
-    } catch(e){
-      return show("Erreur réseau.", false);
+
+      if (r.ok) {
+        show(data.message || "Mot de passe mis à jour ✅", true);
+
+        // ✅ Popup de confirmation
+        alert(data.message || "Mot de passe modifié avec succès ✅");
+
+        // Optionnel : vider les champs
+        p1.value = '';
+        p2.value = '';
+        matchText.textContent = '';
+        matchText.className = 'match-text';
+
+        return;
+      }
+
+      show(data.error || "Erreur lors de la réinitialisation.", false);
+    } catch (e) {
+      show("Erreur réseau.", false);
     } finally {
       btn.disabled = false;
     }
@@ -361,6 +578,7 @@ exports.renderResetPasswordPage = (req, res) => {
     return res.status(400).send("Lien expiré ou invalide.");
   }
 };
+
 
 // ✅ ACTION RESET
 exports.resetPassword = async (req, res) => {
