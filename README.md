@@ -23,3 +23,8 @@ const SECRET = process.env.JWT_SECRET; // Clé dans .env
 nous avons utilsé mysql2, mais avec Promises et gestion automatique des connexions  car étant ds un environnement Render + OVH, 
 - Les callbacks cassent facilement en cloud, pour notre car Sur Render les connexions MySQL étaient coupées
 - Le pool gère ça pour toi en ouvrant plusieurs connexions, en réutilisant les connexions valides, en recréant automatiquement si OVH en ferme une
+
+
+###  scénario 1 : un ticke n'est pas terminé dans sprint 1 et les autres oui qu'est ce qu'on voir ?
+### scénario 2 : une personne est absente recalculer la vélocité
+### scénario 3 : l'équipe revient au complet, il va falloir trouvdr une fonctionnalité innovante
